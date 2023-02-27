@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "commonjs",
   "description": "React utility to bind the state of a component to a bind function.",
-  "main": "./lib/react-bind.js",
+  "main": "./lib/react-binder.js",
   "scripts": {
     "clean": "rimraf ./lib",
     "build": "tsc",
