@@ -1,5 +1,3 @@
-[![Node.js CI](https://github.com/nelson-perez/nelson/react-utils/react-binder/actions/workflows/node.js.yml/badge.svg)](https://github.com/nelson-perez/nelson/react-utils/react-binder/actions/workflows/node.js.yml)
-
 #Reaact Binder
 
 
@@ -154,7 +152,7 @@ export default class App extends React.Component<{}, any> {
     handleChange_set = (event: any) => {
         // Get input value from "event"
         const value = event.target.value;
-        
+
         this.binded.set({
             level1: "setOperation-1: " + value,
             level2: {level2_1: "setOperation-2_1: " + value}
