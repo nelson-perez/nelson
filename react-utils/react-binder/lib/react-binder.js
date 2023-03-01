@@ -5,7 +5,7 @@ exports.ComponentStateBinder = exports.StateBinder = exports.isBinded = void 0;
 const shallowCopy = (x) => { return Object.assign({}, x); };
 const deepCopy = (x) => structuredClone(x);
 // Default value of the options if not presented
-const DEFAULT_BINDING_OPTIONS = { updateState: 'onlyOnChanges', cloningOption: "shallow" };
+const DEFAULT_BINDING_OPTIONS = { whenShouldSetState: 'onlyOnChanges', cloningOption: "shallow" };
 /**
  * Helper function that returns true if the object is considered to be Binded otherwise false.
  *
@@ -55,7 +55,7 @@ var StateBinder;
                 return proxy;
             },
             set: (target, prop, value) => {
-                if (context.current[prop] === value && context.options.updateState === 'onlyOnChanges') {
+                if (context.current[prop] === value && context.options.whenShouldSetState === 'onlyOnChanges') {
                     return true;
                 }
                 target[prop] = value;
@@ -65,10 +65,10 @@ var StateBinder;
             }
         };
         const binder = Object.assign(Object.assign({}, context.current), { __current: current, updateAsync(asyncFunc) {
-                const nextState = context.copy(context.current);
-                return asyncFunc(nextState).then(() => {
-                    const safeNextState = context.copy(nextState);
-                    context.state = safeNextState;
+                const prev = context.copy(context.current);
+                return asyncFunc(prev).then(() => {
+                    const safeNext = context.copy(prev);
+                    binder.set(safeNext);
                     context.onChange();
                 });
             },

@@ -14,16 +14,16 @@ type SetStateFunc<S extends {}> = (
 
 
 // Default value of the options if not presented
-const DEFAULT_BINDING_OPTIONS: BindingOptions = { updateState: 'onlyOnChanges', cloningOption: "shallow" };
+const DEFAULT_BINDING_OPTIONS: BindingOptions = { whenShouldSetState: 'onlyOnChanges', cloningOption: "shallow" };
 
 /**
  * Binding Options to confgure the binding between the state
  * 
- * @property updateState        Determines if the state should be updated only when are changes or allways no matter if the value is the same.
- * @property clonningOption     Determines the cloning method to use for the state either shallow or deep copy
+ * @property whenShouldSetState     Determines if the state should be updated only when are changes or allways no matter if the value is the same.
+ * @property clonningOption         Determines the cloning method to use for the state either shallow or deep copy.
  */
 export type BindingOptions = {
-    updateState?: 'allways' | 'onlyOnChanges',
+    whenShouldSetState?: 'allways' | 'onlyOnChanges',
     cloningOption?: "deep" | "shallow"
 };
 
@@ -31,12 +31,12 @@ export type BindingOptions = {
 /**
  * Binded<T extends {}> object type.
  */
-export type Binded<S extends {}> = {
+export type Binded<S extends {}> = S & {
     updateAsync(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void>,
     update(updateFunc: (prevState: S) => void): void,
     set(newState: S): void,
     toString(): string
-} & S
+};
 
 /**
  * Helper function that returns true if the object is considered to be Binded otherwise false.
@@ -89,7 +89,7 @@ export namespace StateBinder {
                 return proxy;
             },
             set: (target: any, prop: string, value: any) => {
-                if(context.current[prop] === value && context.options.updateState === 'onlyOnChanges') {
+                if(context.current[prop] === value && context.options.whenShouldSetState === 'onlyOnChanges') {
                     return true;
                 }
 

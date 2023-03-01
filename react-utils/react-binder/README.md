@@ -1,9 +1,8 @@
-#Reaact Binder
+# React Binder
 
 
 ## Overview
-Simple utility to create a binded state that updates the state when there is a change.
-
+React Binder is an utility to create a binded state that sets the state automatically with every change.
 
 
 ## Installation
@@ -85,51 +84,56 @@ The `BindingOptions` is a parameter used to change the behavior of the Binder ru
 /**
  * Binding Options to confgure the binding between the state
  * 
- * @property updateState        Determines if the state should be updated only when are changes or allways no matter if the value is the same.
- * @property clonningOption     Determines the cloning method to use for the state either shallow or deep copy
+ * @property whenShouldSetState     Determines if the state should be updated only when are changes or allways no matter if the value is the same.
+ * @property clonningOption         Determines the cloning method to use for the state either shallow or deep copy.
  */
-type BindingOptions = {
-    updateState?: 'allways' | 'onlyOnChanges',
+export type BindingOptions = {
+    whenShouldSetState?: 'allways' | 'onlyOnChanges',
     cloningOption?: "deep" | "shallow"
 };
+
+// Default value of the options if not presented
+const DEFAULT_BINDING_OPTIONS: BindingOptions = { whenShouldSetState: 'onlyOnChanges', cloningOption: "shallow" };
+
 ```
 
-### `updateState`:
+### `whenShouldSetState`:
 When assigning a value to a `BindedState` object it could call `setState()` function which is either "allways" even if the value doesn't change or "onlyOnChange" which only sets the state if setting the value is different from the original.
 
 ### `cloningOption`:
-When cloning the state there are two options either perform a `deep` copy or a `shallow` copy of the state.
+When cloning the state there are two options either perform a `deep` or `shallow` copy of the state.
 
-#### Properties of `BindingOptions`
-|Name               | Type |Description|
-|         -         | - | -   |
-|__updateState__    |  "allways" or "onlyOnChanges" | When assigning a value to a `BindedState` object it could call `setState()` function which is either "allways" even if the value doesn't change or "onlyOnChange" which only sets the state if setting the value is different from the original.|
-|__cloningOption__  | "deep" or "shallow" | When cloning the state there are two options either perform a `deep` copy or a `shallow` copy of the state.|
+#### Properties  of `BindingOptions`:
+|Name                       | Type                          | Default               |Description |
+|         -                 |               -               |       -               |     -      |
+|__whenShouldSetState__     | "allways" or "onlyOnChanges"  |   "onlyOnChanges"     | When assigning a value to a `BindedState` object it could call `setState()` function which is either "allways" even if the value doesn't change or "onlyOnChange" which only sets the state if setting the value is different from the original.|
+|__cloningOption__          | "deep" or "shallow"           |   "shallow"           | When cloning the state there are two options either perform a `deep` copy or a `shallow` copy of the state.|
 
 
 ## Examples
+This and any additonal examples should be under [Examples](https://github.com/nelson-perez/nelson/tree/main/react-utils/react-binder/examples)
 ```typescript
 import React from 'react';
-import { ComponentStateBinder, isBinded } from 'nelson-react-binder';
 
+import { ComponentStateBinder, isBinded, Binded } from 'nelson-react-binder';
 
-type IState = any {
+type IState = {
     level1: string,
     level2: { level2_1: string }
 };
 
 export default class App extends React.Component<{}, any> {
     state: IState = {level1: 'level1', level2: {level2_1: "level2.level2_1"}};
-    binded = ComponentStateBinder.create(this);
+    binded: Binded<IState> = ComponentStateBinder.create(this);
 
     // Input change handler
     handleChange_replacePrimitive = (event: any) => {
         // Get input value from "event"
         const value = event.target.value;
 
+        // Updating the primitives
         this.binded.level1 = "primitive-1 " + value;
         this.binded.level2.level2_1 = "primitive-2_1 " + value;
-
     };
       
     // Input change handler
@@ -137,20 +141,42 @@ export default class App extends React.Component<{}, any> {
         // Get input value from "event"
         const value = event.target.value;
 
+        // Replacing the level2 object and setting the level1 value to <primititve-1>
         this.binded.level1 = '<primitive-1>';
         this.binded.level2 = {
             level2_1: "replaceObject-2_1: " + value
         };
-      };
-
+    };
+    
     // Input change handler
-    handleChange_bulkUpdate = (event: any) => {
+    handleChange_update = (event: any) => {
         // Get input value from "event"
         const value = event.target.value;
 
-        (this.binded).update((b: any) => {
+        // Perform multiple updates within a single setState call
+        this.binded.update((b: any) => {
             b.level1 = "bulkUpdate-1: " +  value;
             b.level2.level2_1 = "bulkUdate-2_1: " + value
+        });
+    };
+
+    // Input change handler
+    handleChange_updateAsync = (event: any) => {
+        async function sleep(ms: number) {
+            const promise = new Promise<void>((res) => setTimeout(res, ms));
+            await promise;
+        }
+
+        // Get input value from "event"
+        const value = event.target.value;
+        this.binded.level1 = "asyncBulkUpdate-1: Waiting";
+        this.binded.level2.level2_1 = "asyncBulkUpdate-2_1: Waiting ";
+        
+        // Perform multiple updates within a single setState call
+        this.binded.updateAsync(async (b: any) => {
+            await sleep(1000);
+            b.level1 = "asyncBulkUpdate-1: " +  value;
+            b.level2.level2_1 = "asyncBulkUpdate-2_1: " + value
         });
     };
 
@@ -168,9 +194,16 @@ export default class App extends React.Component<{}, any> {
   render() {
         return (
             <div>
-                <h2>Component state is{isBinded(this.binded)?' ': ' NOT ' }Binded</h2>
-                <h2>Component state.lelvel2 is{isBinded(this.binded.level2)?' ': ' NOT ' }Binded</h2>
+                <h1>Simple examples</h1>
                 <div>
+                    <h3>isBinded() Test</h3>
+                    <p>Component this.binded is{isBinded(this.binded)?' ': ' NOT ' }Binded</p>
+                    <p>Component this.binded.lelvel2 is{isBinded(this.binded.level2)?' ': ' NOT ' }Binded</p>
+                    <p>Component this.state is{isBinded(this.state)?' ': ' NOT ' }Binded</p>
+                    <p>Component this.state.level2 is{isBinded(this.state.level2)?' ': ' NOT ' }Binded</p>
+                </div>
+                <div>
+                    <h3>Binding tests</h3>
                     <p>
                         Replaces primitive:
                         <input type="text" onChange={this.handleChange_replacePrimitive} />
@@ -181,7 +214,11 @@ export default class App extends React.Component<{}, any> {
                     </p>
                     <p>
                         Bulk updates:
-                        <input type="text" onChange={this.handleChange_bulkUpdate} />
+                        <input type="text" onChange={this.handleChange_update} />
+                    </p>
+                    <p>
+                        Bulk updates async:
+                        <input type="text" onChange={this.handleChange_updateAsync} />
                     </p>
                     <p>
                         Set operation:

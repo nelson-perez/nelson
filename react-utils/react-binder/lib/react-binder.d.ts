@@ -3,22 +3,22 @@ declare type SetStateFunc<S extends {}> = (state: S, callback?: () => void) => v
 /**
  * Binding Options to confgure the binding between the state
  *
- * @property updateState        Determines if the state should be updated only when are changes or allways no matter if the value is the same.
- * @property clonningOption     Determines the cloning method to use for the state either shallow or deep copy
+ * @property whenShouldSetState     Determines if the state should be updated only when are changes or allways no matter if the value is the same.
+ * @property clonningOption         Determines the cloning method to use for the state either shallow or deep copy.
  */
 export declare type BindingOptions = {
-    updateState?: 'allways' | 'onlyOnChanges';
+    whenShouldSetState?: 'allways' | 'onlyOnChanges';
     cloningOption?: "deep" | "shallow";
 };
 /**
  * Binded<T extends {}> object type.
  */
-export declare type Binded<S extends {}> = {
+export declare type Binded<S extends {}> = S & {
     updateAsync(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void>;
     update(updateFunc: (prevState: S) => void): void;
     set(newState: S): void;
     toString(): string;
-} & S;
+};
 /**
  * Helper function that returns true if the object is considered to be Binded otherwise false.
  *
