@@ -104,10 +104,10 @@ export namespace StateBinder {
             ...context.current,
             __current: current,
             updateAsync(asyncFunc: (x: T) => Promise<void>): Promise<void> {
-                const nextState = context.copy(context.current);
-                return asyncFunc(nextState).then(() => {
-                        const safeNextState = context.copy(nextState);
-                        context.state = safeNextState;
+                const prev = context.copy(context.current);
+                return asyncFunc(prev).then(() => {
+                        const safeNext = context.copy(prev);
+                        binder.set(safeNext);
                         context.onChange();
                 });
             },
