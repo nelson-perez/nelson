@@ -112,7 +112,7 @@ When cloning the state there are two options either perform a `deep` or `shallow
 
 ## Examples
 This and any additonal examples should be under [Examples](https://github.com/nelson-perez/nelson/tree/main/react-utils/react-binder/examples)
-```typescript
+```tsx
 import React from 'react';
 
 import { ComponentStateBinder, isBinded, Binded } from 'nelson-react-binder';
