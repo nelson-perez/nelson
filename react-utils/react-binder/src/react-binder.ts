@@ -1,200 +1,242 @@
-import 'typescript';
 import React from 'react';
-import { deepCopy, shallowCopy } from './utils';
 
 
-export type BindedState<S extends object> = {
-    asyncBulkUpdate(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void>,
-    bulkUpdate(updateFunc: (prevState: S) => void): void,
-    setState(newState: S): void,
-    toString(): string
-} & S
+// Simple helper copy functions
+const shallowCopy = (x: any) => {return {...x}};
+const deepCopy = (x: any) => structuredClone(x);
 
-const EmptyBinderTemplate = {
-    async asyncBulkUpdate(asynUpdateFunc: (prevState: any) => Promise<void>): Promise<void> {},
-    bulkUpdate(updateFunc: (prevState: any) => void) {},
-    setState(newState: any) {},
-    toString() { return  '' }
-}
 
-export function EmptyBindedState(): BindedState<any> {
-    return {...EmptyBinderTemplate};
-}
+// Type of the setState() function in order for the binder to work.
+type SetStateFunc<S extends {}> = (
+    state: S,
+    callback?: () => void
+) => void
 
-// Options
-type BindingOptions = {
-    updateState: 'allways' | 'onlyOnChanges',
-    cloningOption?: "deep" | "shallow"
-};
-
-type InternalBindingOptions = {
-    seenValues?: WeakMap<object, BindedState<any>>,
-    copy: (obj: any) => any,
-} & BindingOptions;
 
 // Default value of the options if not presented
 const DEFAULT_BINDING_OPTIONS: BindingOptions = { updateState: 'onlyOnChanges', cloningOption: "shallow" };
 
-export namespace StateBinder { 
+/**
+ * Binding Options to confgure the binding between the state
+ * 
+ * @property updateState        Determines if the state should be updated only when are changes or allways no matter if the value is the same.
+ * @property clonningOption     Determines the cloning method to use for the state either shallow or deep copy
+ */
+export type BindingOptions = {
+    updateState?: 'allways' | 'onlyOnChanges',
+    cloningOption?: "deep" | "shallow"
+};
+
+
+/**
+ * Binded<T extends {}> object type.
+ */
+export type Binded<S extends {}> = {
+    updateAsync(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void>,
+    update(updateFunc: (prevState: S) => void): void,
+    set(newState: S): void,
+    toString(): string
+} & S
+
+/**
+ * Helper function that returns true if the object is considered to be Binded otherwise false.
+ * 
+ * @param obj Object to check if it's binded
+ * @returns {boolean} True if the object is Binded otherwise false
+ */
+export function isBinded<T extends object>(obj: Binded<T> | any) {
+    if(obj && obj?.__current) {
+        return true;
+    }
+    return false
+}
+
+export namespace StateBinder {
     /**
+     * Creates a {@link Binded} state based on the passed state which call setState call for every change.
      * 
-     * @param state React state
-     * @param setState Set state function to update once there is a change to the BindedState
-     * @param options Additional options to configure the state binder.
-     * @returns 
+     * DO NOT use when declaring the a variable in the {@link React.Component} class as
+     * the setSate gets replaced after declared. Use the {@link ComponentBinder.create()}
+     * function instead as it handles this case.
+     * 
+     * @param {TState}          state           React state variable to use
+     * @param {Function}        setStateFunc    Function pass the state once there is a change to the BindedState
+     * @param {BindingOptions}  options         Additional options to configure the state binder.
+     * 
+     * @returns {@link Binded<T>} for {@link React.Component}.
      */
-    export function create<S extends object>(
-        state: S,
-        setState: (prevState: Readonly<S>, callback: () => any) => any,
-        options: BindingOptions = DEFAULT_BINDING_OPTIONS): BindedState<S> {
-            const internalOptions = createInternalOptions(options);
-            const context = createBindingContext(state, setState, internalOptions.copy);
+    export function create<TState extends {}>(
+        state: TState,
+        setStateFunc: SetStateFunc<TState>,
+        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState> {
+            const contextState = shallowCopy(state);
+            const context = createBindingContext(contextState, contextState, setStateFunc, options);
+            const stateProxy = createProxy(context.state, context);
 
-            const binder: any = {
-                async asyncBulkUpdate(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void> {
-                    const nextState = internalOptions.copy(context.current);
-                    await asynUpdateFunc(nextState);
-                    const safeNextState = internalOptions.copy(nextState);
-                    context.current = safeNextState;
-                    context.onChange();
-                },
-                bulkUpdate(updateFunc: (prevState: S) => void) {
-                    const nextState = internalOptions.copy(context.current);
-                    updateFunc(nextState);
-                    const safeNextState = internalOptions.copy(nextState);
-                    context.current = safeNextState;
-                    context.onChange();
-                },
-                setState(newState: S) {
-                    binder.bulkUpdate((prevState: S) => {
-                        Object.assign(prevState, newState);
-                    });
-                },
-                toString(): string { return JSON.stringify(context.current) }
-            };
+            return stateProxy;
+    };
 
-            for(const [key, value] of Object.entries(state)) {
-                const bindedProperty = bindProperty(key, value, context, internalOptions);
-                Object.defineProperty(binder, key, bindedProperty);
+    // Helper function that actually creates the Binded object
+    function createProxy<TState extends {}, T extends {}>(current: any, parentContext: Context<TState>): Binded<any> {
+        const context = createChildContext(current, parentContext);
+        const handler = {
+            get: (target: any, key: string): Binded<any> => {
+                if(typeof target[key] !== "object" || target[key] === null) {
+                    return target[key];
+                }
+                const proxy = createProxy(context.current[key], context);
+                target[key] = proxy
+                return proxy;
+            },
+            set: (target: any, prop: string, value: any) => {
+                if(context.current[prop] === value && context.options.updateState === 'onlyOnChanges') {
+                    return true;
+                }
+
+                target[prop] = value;
+                context.current[prop] = value;
+                context.onChange();
+                return true;
             }
+        }
 
-            return binder;
-    }
+        const binder: Binded<T | any> = {
+            ...context.current,
+            __current: current,
+            updateAsync(asyncFunc: (x: T) => Promise<void>): Promise<void> {
+                const nextState = context.copy(context.current);
+                return asyncFunc(nextState).then(() => {
+                        const safeNextState = context.copy(nextState);
+                        context.state = safeNextState;
+                        context.onChange();
+                });
+            },
+            update(func: (x: T) => void) {
+                const prev = context.copy(context.current);
+                func(prev);
+                const safeNext = context.copy(prev);
+                binder.set(safeNext);
+            },
+            set(newValues: Partial<T>): T {
+                const safeNext = context.copy(newValues);
+                const assigned = Object.assign(context.current, safeNext);
+                context.current = assigned;
+                context.onChange();
+                return assigned;
+            },
+            replace(newValue: T): T {
+                const safeNext = context.copy(newValue);
+                context.current = safeNext;
+                return binder;
+            },
+            toString(): string {
+                return JSON.stringify(current);
+            }
+        };
 
-    /**
-     * Create an empty {@link BindedState<any>}
-     * 
-     * @returns Empty {@link BindedState<any>}
-     */
-    export function empty() {
-        return EmptyBindedState();
+        const toProxy = binder;
+        const proxy = new Proxy(toProxy, handler);
+        return proxy;
     }
 }
 
-export namespace ComponentBinder {
+export namespace ComponentStateBinder {
     /**
-     * Creates a BindedState of a Component State which allows you to modify and update the state
-     * as the properties of the state has been updated.
+     * Creates a Binded state for the type {@link TState} of a Component State which allows 
+     * you to modify and update the state as the properties of the state has been updated.
      * 
-     * @param component React Component to create the Binded State from
-     * @param options Additional options to configure the binder
-     * @returns {@link BindedState} for {@link React.Component}.
+     * @param {React.Component} component   React Component to create the Binded State from.
+     * @param {BindingOptions}  options     Additional options to configure the binder.
+     * 
+     * @returns {@link Binded<TState>} for the {@link React.Component}.
      */
-    export function create<P, S extends {}>(
-        component: React.Component<P, S>,
-        options: BindingOptions = DEFAULT_BINDING_OPTIONS): BindedState<S> {
-            return StateBinder.create(
-                component.state,
-                (state, callback) => component.setState(state, callback),
-                options);
+    export function create<TProps, TState extends {}>(
+        component: React.Component<TProps, TState>,
+        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState> {
+            const state: TState = component.state ?? {};
+            const setStateFunc: SetStateFunc<TState> = (state) => {
+                component.setState(state);
+            };
+            const stateProxy = StateBinder.create(state, setStateFunc, options);
+            return stateProxy;
     }
-
-    /**
-     * Create an empty {@link BindedState<any>}
-     * 
-     * @returns Empty {@link BindedState<any>}
-     */
-    export function empty() {
-        return EmptyBindedState();
-    }    
 }
 
-// Privates
+// Context
+type Context<TState extends {}> = {
+    state: TState,
+    current: any,
+    copy: (x: any) => any,
+    onChange: () => void,
+    options: BindingOptions
+};
+
 /**
  * Helper function to create the binding context used to manage the state internally.
+ * 
+ * DO NOT use when declaring the a variable in the {@link React.Component} class as
+ * the setSate gets replaced after declared. Use the {@link ComponentBinder.create()}
+ * function instead.
  * 
  * @param state The state object
  * @param setState The setState function to perform evertime there is a change.
  * @param copy The copy function to use to perform a copy operations
+ * 
  * @returns Return a Binding Context necesary to create the {@link BindedState}
  */
-function createBindingContext<S extends object>(
-    state: S,
-    setState: (prevState: Readonly<S>, callback: () => any) => any,
-    copy: (obj: any) => any) {
-        const context = {
-            current: copy(state),
-            setState: setState,
-            onChange: () => { // TODO: Fix the copy issues
-                const nextState: Readonly<S> = copy(context.current);
-                setState(nextState, () => context.current = nextState)
+function createBindingContext<TState extends {}>(
+    obj: any,
+    state: TState,
+    setStateFunc: SetStateFunc<TState>,
+    options: BindingOptions): Context<TState> {
+        let copy: (obj: any) => any;
+        const current = obj;
+        switch(options.cloningOption) {
+            case "deep":
+                copy = deepCopy
+                break;
+            case "shallow":
+            default:
+                copy = shallowCopy
+        }
+
+        if(isBinded(current)) {
+            console.log({alreadyBinded: current});
+        }
+        const context: Context<TState> = {
+            state: state,
+            current: current,
+            copy: copy,
+            onChange: () => {
+                const nextState: Readonly<TState> = copy(context.state);
+                setStateFunc(nextState, () => context.state = nextState);
             },
-            isDirty: false,
+            options: options
         };
         return context;
 }
 
 /**
- * Helper function to bind a object property
+ * Helper function to create the binding context used to manage the state internally.
  * 
- * @param key The property key string to update
- * @param value The value for that property
- * @param context The Binding Context with the information needed to perform the binding.
- * @param options Additional options to perform the binding.
- * @returns A binded property to assign to the object.
- */
-function bindProperty<TProperty>(
-    key: string,
-    value: TProperty,
-    context: any,
-    options: InternalBindingOptions) {
-        console.log({bindProperty: {key, context}});
-        if(key === '') return value;
-        return {
-            get () {
-                const value = context.current[key];
-                if(typeof value === 'object' && !Array.isArray(value)) {
-                    const seened = options.seenValues?.get(value);
-                    if(seened !== undefined) return seened;
-                    const binded = StateBinder.create(value, context.setState, options);
-                    options.seenValues?.set(value, binded);
-                    return binded;
-                }
-                return value;
-            },
-            set(newVal: any) {
-                if(context.current[key] === newVal && options.updateState === 'onlyOnChanges') return;
-                context.current[key] = newVal;
-                context.onChange();
-            }
-        }
-    }
-
-/**
- * Helper function to convert the {@link BindingOptions} to {@link InternalBindingOptions}
+ * DO NOT use when declaring the a variable in the {@link React.Component} class as
+ * the setSate gets replaced after declared. Use the {@link ComponentBinder.create()}
+ * function instead.
  * 
- * @param {BindingOptions} options Binding options passed through the exported functions
- * @returns {InternalBindingOptions} Converted {@link InternalBindingOptions}
+ * @param current The current object been minitored
+ * @param state The state object
+ * @param setState The setState function to perform evertime there is a change.
+ * @param copy The copy function to use to perform a copy operations
+ * 
+ * @returns Return a Binding Context necesary to create the {@link BindedState}
  */
-function createInternalOptions(options: BindingOptions): InternalBindingOptions {
-    let copy: (obj: any) => any;
-    switch(options.cloningOption) {
-        case "deep":
-            copy = deepCopy
-            break;
-        case "shallow":
-        default:
-            copy = shallowCopy
-    }
-    return { copy: copy, seenValues: new WeakMap<object, object>(), ...options};
+function createChildContext<TState extends {}, T extends {}>(current: T, parentContext: Context<TState>): Context<TState> {
+        const context: Context<TState> = {
+            state: parentContext.state,
+            current: current,
+            copy: parentContext.copy,
+            onChange: parentContext.onChange,
+            options: parentContext.options
+        };
+        return context;
 }
