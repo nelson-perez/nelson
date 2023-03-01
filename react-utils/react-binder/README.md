@@ -85,7 +85,7 @@ The `BindingOptions` is a parameter used to change the behavior of the Binder ru
 ### Definition of the `BindingOptions`
 ```typescript
 type BindingOptions = {
-    updateState: 'allways' | 'onlyOnChanges',
+    updateState?: 'allways' | 'onlyOnChanges',
     cloningOption?: "deep" | "shallow"
 };
 ```
@@ -108,12 +108,11 @@ When cloning the state there are two options either perform a `deep` copy or a `
 import React from 'react';
 import { ComponentStateBinder, isBinded } from 'nelson-react-binder';
 
-// import { deepCopy } from '../../utils/utils';
 
-type IState = any /*{
+type IState = any {
     level1: string,
     level2: { level2_1: string }
-};*/
+};
 
 export default class App extends React.Component<{}, any> {
     state: IState = {level1: 'level1', level2: {level2_1: "level2.level2_1"}};
@@ -121,8 +120,9 @@ export default class App extends React.Component<{}, any> {
 
     // Input change handler
     handleChange_replacePrimitive = (event: any) => {
-        // 👇 Get input value from "event"
+        // Get input value from "event"
         const value = event.target.value;
+
         this.binded.level1 = "primitive-1 " + value;
         this.binded.level2.level2_1 = "primitive-2_1 " + value;
 
@@ -130,8 +130,9 @@ export default class App extends React.Component<{}, any> {
       
     // Input change handler
     handleChange_objectReplacement = (event: any) => {
-        // 👇 Get input value from "event"
+        // Get input value from "event"
         const value = event.target.value;
+
         this.binded.level1 = '<primitive-1>';
         this.binded.level2 = {
             level2_1: "replaceObject-2_1: " + value
@@ -140,7 +141,7 @@ export default class App extends React.Component<{}, any> {
 
     // Input change handler
     handleChange_bulkUpdate = (event: any) => {
-        // 👇 Get input value from "event"
+        // Get input value from "event"
         const value = event.target.value;
 
         (this.binded).update((b: any) => {
@@ -151,8 +152,9 @@ export default class App extends React.Component<{}, any> {
 
     // Input change handler
     handleChange_set = (event: any) => {
-        // 👇 Get input value from "event"
+        // Get input value from "event"
         const value = event.target.value;
+        
         this.binded.set({
             level1: "setOperation-1: " + value,
             level2: {level2_1: "setOperation-2_1: " + value}
