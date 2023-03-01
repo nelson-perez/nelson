@@ -13,31 +13,31 @@ npm install nelson-react-binder --save
 ```
 
 ## API
-## `ComponentBinder` namespace
-### `ComponentBinder.create<P extends {}, S extends {}>()`
+## `ComponentStateBinder` namespace
+### `ComponentStateBinder.create<P extends {}, S extends {}>()`
 This method provides the necesary functionality that allows to create a BindedState object that can be used instead of the regular `Component.state` which automatically updates the state of your component when you perform changes to the binded state 
 
 > ### Function definition
 ```typescript
     /**
-     * Creates a BindedState of a Component State which allows you to modify and update the state
-     * as the properties of the state has been updated.
+     * Creates a Binded state for the type {@link TState} of a Component State which allows 
+     * you to modify and update the state as the properties of the state has been updated.
      * 
-     * @param {React.Component} component React Component to create the Binded State from.
-     * @param {BindingOptions}  options Additional options to configure the binder.
+     * @param {React.Component} component   React Component to create the Binded State from.
+     * @param {BindingOptions}  options     Additional options to configure the binder.
      * 
-     * @returns {@link Binded<TState>} for {@link React.Component}.
+     * @returns {@link Binded<TState>} for the {@link React.Component}.
      */
     export function create<TProps, TState extends {}>(
         component: React.Component<TProps, TState>,
-        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState>
+        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState> 
 ```
 
-#### Parameters of `ComponentBinder.create<TP extends {}, S extends {}>()`
+#### Parameters of `ComponentStateBinder.create<TP extends {}, S extends {}>()`
 |Name               | Description|
 |         -         |   -   |
-|***P***            | Type of the Component properties|
-|***S***            | Type of the Component state|
+|***TProps***       | Type of the Component properties|
+|***TState***       | Type of the Component state|
 |__component__      | React Component to create the Binded State|
 |__options__        | Additional options to configure the binder behavior.|
 
@@ -65,13 +65,13 @@ This method provides the necesary functionality that allows to create a BindedSt
     export function create<TState extends {}>(
         state: TState,
         setStateFunc: SetStateFunc<TState>,
-        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState>
+        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState> 
 ```
 
-#### Parameters of `ComponentBinder.create<P extends {}, S extends {}>()`
+#### Parameters of `StateBinder.create<P extends {}, S extends {}>()`
 |Name               | Description|
 |         -         |   -   |
-|***S***            | Type of the passed state parameter|
+|***TState***       | Type of the passed state parameter|
 |__state__          | State to keep perform be tracked by the BindedState object.|
 |__options__        | Additional options to configure the binder behavior.|
 
@@ -82,6 +82,12 @@ The `BindingOptions` is a parameter used to change the behavior of the Binder ru
 
 ### Definition of the `BindingOptions`
 ```typescript
+/**
+ * Binding Options to confgure the binding between the state
+ * 
+ * @property updateState        Determines if the state should be updated only when are changes or allways no matter if the value is the same.
+ * @property clonningOption     Determines the cloning method to use for the state either shallow or deep copy
+ */
 type BindingOptions = {
     updateState?: 'allways' | 'onlyOnChanges',
     cloningOption?: "deep" | "shallow"
@@ -97,7 +103,7 @@ When cloning the state there are two options either perform a `deep` copy or a `
 #### Properties of `BindingOptions`
 |Name               | Type |Description|
 |         -         | - | -   |
-|__updateState__   |  "allways" or "onlyOnChanges" | When assigning a value to a `BindedState` object it could call `setState()` function which is either "allways" even if the value doesn't change or "onlyOnChange" which only sets the state if setting the value is different from the original.|
+|__updateState__    |  "allways" or "onlyOnChanges" | When assigning a value to a `BindedState` object it could call `setState()` function which is either "allways" even if the value doesn't change or "onlyOnChange" which only sets the state if setting the value is different from the original.|
 |__cloningOption__  | "deep" or "shallow" | When cloning the state there are two options either perform a `deep` copy or a `shallow` copy of the state.|
 
 
