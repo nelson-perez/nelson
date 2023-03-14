@@ -1,6 +1,6 @@
 {
   "name": "nelson-react-binder",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "commonjs",
   "description": "React utility to bind the state of a component to a bind function.",
   "main": "./lib/react-binder.js",
@@ -17,21 +17,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nelson-perez/nelson/"
+    "url": "git+https://github.com/nelson-perez/nelson/tree/main/react-utils/react-binder/"
   },
-  "homepage": "https://github.com/nelson-perez/nelson/react-utils/react-binder#readme",
+  "homepage": "https://github.com/nelson-perez/nelson/tree/main/react-utils/react-binder#readme",
   "keywords": [
-    "sort",
-    "sorting",
-    "large sort",
-    "external merge sort",
-    "external sorting",
-    "sorting algorithm",
-    "merge sort",
-    "large files",
-    "files",
-    "swap",
-    "typescript"
+    "react",
+    "state",
+    "binder",
+    "state binder",
+    "setState"
   ],
   "files": [
     "./lib/**/*"
