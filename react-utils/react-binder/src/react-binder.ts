@@ -7,14 +7,10 @@ const deepCopy = (x: any) => structuredClone(x);
 
 
 // Type of the setState() function in order for the binder to work.
-type SetStateFunc<S extends {}> = (
-    state: S,
-    callback?: () => void
+export type SetStateFunction<S extends {}> = (
+    state: S
 ) => void
 
-
-// Default value of the options if not presented
-const DEFAULT_BINDING_OPTIONS: BindingOptions = { whenShouldSetState: 'onlyOnChanges', cloningOption: "shallow" };
 
 /**
  * Binding Options to confgure the binding between the state
@@ -27,6 +23,8 @@ export type BindingOptions = {
     cloningOption?: "deep" | "shallow"
 };
 
+// Default value of the options if not presented
+const DEFAULT_BINDING_OPTIONS: BindingOptions = { whenShouldSetState: 'onlyOnChanges', cloningOption: "shallow" };
 
 /**
  * Binded<T extends {}> object type.
@@ -34,9 +32,14 @@ export type BindingOptions = {
 export type Binded<S extends {}> = S & {
     updateAsync(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void>,
     update(updateFunc: (prevState: S) => void): void,
-    set(newState: S): void,
+    set(newState: Partial<S>): void,
     toString(): string
 };
+
+/**
+ * BindedState<T extends {}> object type.
+ */
+export type BindedState<S extends {}> = Binded<S>;
 
 /**
  * Helper function that returns true if the object is considered to be Binded otherwise false.
@@ -44,11 +47,8 @@ export type Binded<S extends {}> = S & {
  * @param obj Object to check if it's binded
  * @returns {boolean} True if the object is Binded otherwise false
  */
-export function isBinded<T extends object>(obj: Binded<T> | any) {
-    if(obj && obj?.__current) {
-        return true;
-    }
-    return false
+export function isBinded<T extends object>(obj: Binded<T> | any): boolean {
+    return obj?.__binded;
 }
 
 export namespace StateBinder {
@@ -60,18 +60,17 @@ export namespace StateBinder {
      * function instead as it handles this case.
      * 
      * @param {TState}          state           React state variable to use
-     * @param {Function}        setStateFunc    Function pass the state once there is a change to the BindedState
+     * @param {Function}        setStateFunc    Function pass the state once there is a change to the Binded
      * @param {BindingOptions}  options         Additional options to configure the state binder.
      * 
      * @returns {@link Binded<T>} for {@link React.Component}.
      */
     export function create<TState extends {}>(
         state: TState,
-        setStateFunc: SetStateFunc<TState>,
-        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState> {
-            const contextState = shallowCopy(state);
-            const context = createBindingContext(contextState, contextState, setStateFunc, options);
-            const stateProxy = createProxy(context.state, context);
+        setStateFunc: SetStateFunction<TState>,
+        options: BindingOptions = DEFAULT_BINDING_OPTIONS): BindedState<TState> {
+            const stateContext = createStateBindingContext(state, setStateFunc, options);
+            const stateProxy = createProxy(stateContext.current, stateContext);
 
             return stateProxy;
     };
@@ -81,14 +80,25 @@ export namespace StateBinder {
         const context = createChildContext(current, parentContext);
         const handler = {
             get: (target: any, key: string): Binded<any> => {
-                if(typeof target[key] !== "object" || target[key] === null) {
-                    return target[key];
+                console.log({get: {target, key}})
+                // if(!Object.hasOwn(target, key)) {
+                //     return undefined;
+                // }
+                const value = target[key];
+                if (typeof value !== "object") {
+                    return value;
                 }
+
+                if(isBinded(value)) {
+                    return value;
+                }
+
                 const proxy = createProxy(context.current[key], context);
                 target[key] = proxy
                 return proxy;
             },
             set: (target: any, prop: string, value: any) => {
+                console.log({set: {target, prop, value}})
                 if(context.current[prop] === value && context.options.whenShouldSetState === 'onlyOnChanges') {
                     return true;
                 }
@@ -102,39 +112,33 @@ export namespace StateBinder {
 
         const binder: Binded<T | any> = {
             ...context.current,
-            __current: current,
-            updateAsync(asyncFunc: (x: T) => Promise<void>): Promise<void> {
+            __binded: true,
+            update(func: (x: T) => void | PromiseLike<void>): void | Promise<void> {
                 const prev = context.copy(context.current);
-                return asyncFunc(prev).then(() => {
-                        const safeNext = context.copy(prev);
-                        binder.set(safeNext);
-                        context.onChange();
-                });
-            },
-            update(func: (x: T) => void) {
-                const prev = context.copy(context.current);
-                func(prev);
-                const safeNext = context.copy(prev);
-                binder.set(safeNext);
+                const undefinedOrPromise = func(prev);
+
+                // If it's an async function or returns a promise handles it.
+                if(undefinedOrPromise instanceof Promise) {
+                    const promise = undefinedOrPromise.then(() => {
+                        binder.set(prev);
+                    });
+                    return promise;
+                }
+                binder.set(prev);
             },
             set(newValues: Partial<T>): T {
+                console.log({newValues})
                 const safeNext = context.copy(newValues);
-                const assigned = Object.assign(context.current, safeNext);
-                context.current = assigned;
+                Object.assign(context.current, safeNext);
+                Object.assign(binder, safeNext);
                 context.onChange();
-                return assigned;
-            },
-            replace(newValue: T): T {
-                const safeNext = context.copy(newValue);
-                context.current = safeNext;
                 return binder;
             },
             toString(): string {
-                return JSON.stringify(current);
+                return JSON.stringify(context.current);
             }
         };
-
-        const toProxy = binder;
+        const toProxy = binder
         const proxy = new Proxy(toProxy, handler);
         return proxy;
     }
@@ -152,9 +156,9 @@ export namespace ComponentStateBinder {
      */
     export function create<TProps, TState extends {}>(
         component: React.Component<TProps, TState>,
-        options: BindingOptions = DEFAULT_BINDING_OPTIONS): Binded<TState> {
+        options: BindingOptions = DEFAULT_BINDING_OPTIONS): BindedState<TState> {
             const state: TState = component.state ?? {};
-            const setStateFunc: SetStateFunc<TState> = (state) => {
+            const setStateFunc: SetStateFunction<TState> = (state: TState) => {
                 component.setState(state);
             };
             const stateProxy = StateBinder.create(state, setStateFunc, options);
@@ -164,7 +168,6 @@ export namespace ComponentStateBinder {
 
 // Context
 type Context<TState extends {}> = {
-    state: TState,
     current: any,
     copy: (x: any) => any,
     onChange: () => void,
@@ -182,15 +185,13 @@ type Context<TState extends {}> = {
  * @param setState The setState function to perform evertime there is a change.
  * @param copy The copy function to use to perform a copy operations
  * 
- * @returns Return a Binding Context necesary to create the {@link BindedState}
+ * @returns Return a Binding Context necesary to create the {@link Binded}
  */
-function createBindingContext<TState extends {}>(
-    obj: any,
+function createStateBindingContext<TState extends {}>(
     state: TState,
-    setStateFunc: SetStateFunc<TState>,
+    setStateFunc: SetStateFunction<TState>,
     options: BindingOptions): Context<TState> {
         let copy: (obj: any) => any;
-        const current = obj;
         switch(options.cloningOption) {
             case "deep":
                 copy = deepCopy
@@ -200,16 +201,16 @@ function createBindingContext<TState extends {}>(
                 copy = shallowCopy
         }
 
-        if(isBinded(current)) {
-            console.log({alreadyBinded: current});
+        if(isBinded(state)) {
+            console.log({alreadyBinded: state});
         }
+
         const context: Context<TState> = {
-            state: state,
-            current: current,
+            current: copy(state),
             copy: copy,
             onChange: () => {
-                const nextState: Readonly<TState> = copy(context.state);
-                setStateFunc(nextState, () => context.state = nextState);
+                const nextState: Readonly<TState> = copy(context.current);
+                setStateFunc(nextState);
             },
             options: options
         };
@@ -219,7 +220,7 @@ function createBindingContext<TState extends {}>(
 /**
  * Helper function to create the binding context used to manage the state internally.
  * 
- * DO NOT use when declaring the a variable in the {@link React.Component} class as
+ * DO NOT use when declaring the variable in the {@link React.Component} class as
  * the setSate gets replaced after declared. Use the {@link ComponentBinder.create()}
  * function instead.
  * 
@@ -228,11 +229,10 @@ function createBindingContext<TState extends {}>(
  * @param setState The setState function to perform evertime there is a change.
  * @param copy The copy function to use to perform a copy operations
  * 
- * @returns Return a Binding Context necesary to create the {@link BindedState}
+ * @returns Return a Binding Context necesary to create the {@link Binded}
  */
-function createChildContext<TState extends {}, T extends {}>(current: T, parentContext: Context<TState>): Context<TState> {
-        const context: Context<TState> = {
-            state: parentContext.state,
+function createChildContext<T extends {}>(current: T, parentContext: Context<any>): Context<T> {
+        const context: Context<T> = {
             current: current,
             copy: parentContext.copy,
             onChange: parentContext.onChange,

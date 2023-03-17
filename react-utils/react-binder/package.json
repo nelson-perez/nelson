@@ -25,7 +25,9 @@
     "state",
     "binder",
     "state binder",
-    "setState"
+    "setState",
+    "react component",
+    "component"
   ],
   "files": [
     "./lib/**/*"
