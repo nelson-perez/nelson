@@ -3,8 +3,9 @@
     "version": "1.0.0",
     "private": true,
     "scripts": {
-        "link": "npm link ../../ && npm install ../../",
-        "start": "react-scripts start",
+        "link": "npm link ../ && npm install ../",
+        "start": "npm run link && react-scripts start",
+        "prestart": "cd .. && npm install && npm run prepack",
         "build": "react-scripts build"
     },
     "eslintConfig": {
@@ -25,10 +26,10 @@
         ]
     },
     "dependencies": {
+        "nelson-react-binder": "file:..",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
-        "react-router-dom": "^6.8.1",
-        "nelson-react-binder": "file:.."
+        "react-router-dom": "^6.8.1"
     },
     "devDependencies": {
         "@types/node": "^16.18.11",
