@@ -1,6 +1,6 @@
 {
   "name": "nelson-react-binder",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "commonjs",
   "description": "React utility to bind the state of a component to a bind function.",
   "main": "./lib/react-binder.js",
