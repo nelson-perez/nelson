@@ -69,6 +69,10 @@ export namespace StateBinder {
         state: TState,
         setStateFunc: SetStateFunction<TState>,
         options: BindingOptions = DEFAULT_BINDING_OPTIONS): BindedState<TState> {
+            // Check if the object is already binded to another setState
+            if(isBinded(state)) {
+                console.warn('The object is already binded');
+            }
             const stateContext = createStateBindingContext(state, setStateFunc, options);
             const stateProxy = createProxy(stateContext.current, stateContext);
 
@@ -80,7 +84,6 @@ export namespace StateBinder {
         const context = createChildContext(current, parentContext);
         const handler = {
             get: (target: any, key: string): Binded<any> => {
-                console.log({get: {target, key}})
                 // if(!Object.hasOwn(target, key)) {
                 //     return undefined;
                 // }
@@ -98,7 +101,6 @@ export namespace StateBinder {
                 return proxy;
             },
             set: (target: any, prop: string, value: any) => {
-                console.log({set: {target, prop, value}})
                 if(context.current[prop] === value && context.options.whenShouldSetState === 'onlyOnChanges') {
                     return true;
                 }
@@ -127,7 +129,6 @@ export namespace StateBinder {
                 binder.set(prev);
             },
             set(newValues: Partial<T>): T {
-                console.log({newValues})
                 const safeNext = context.copy(newValues);
                 Object.assign(context.current, safeNext);
                 Object.assign(binder, safeNext);
@@ -199,10 +200,6 @@ function createStateBindingContext<TState extends {}>(
             case "shallow":
             default:
                 copy = shallowCopy
-        }
-
-        if(isBinded(state)) {
-            console.log({alreadyBinded: state});
         }
 
         const context: Context<TState> = {

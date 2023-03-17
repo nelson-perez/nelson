@@ -1,5 +1,5 @@
 import React from 'react';
-declare type SetStateFunc<S extends {}> = (state: S, callback?: () => void) => void;
+export declare type SetStateFunction<S extends {}> = (state: S) => void;
 /**
  * Binding Options to confgure the binding between the state
  *
@@ -16,9 +16,13 @@ export declare type BindingOptions = {
 export declare type Binded<S extends {}> = S & {
     updateAsync(asynUpdateFunc: (prevState: S) => Promise<void>): Promise<void>;
     update(updateFunc: (prevState: S) => void): void;
-    set(newState: S): void;
+    set(newState: Partial<S>): void;
     toString(): string;
 };
+/**
+ * BindedState<T extends {}> object type.
+ */
+export declare type BindedState<S extends {}> = Binded<S>;
 /**
  * Helper function that returns true if the object is considered to be Binded otherwise false.
  *
@@ -35,12 +39,12 @@ export declare namespace StateBinder {
      * function instead as it handles this case.
      *
      * @param {TState}          state           React state variable to use
-     * @param {Function}        setStateFunc    Function pass the state once there is a change to the BindedState
+     * @param {Function}        setStateFunc    Function pass the state once there is a change to the Binded
      * @param {BindingOptions}  options         Additional options to configure the state binder.
      *
      * @returns {@link Binded<T>} for {@link React.Component}.
      */
-    function create<TState extends {}>(state: TState, setStateFunc: SetStateFunc<TState>, options?: BindingOptions): Binded<TState>;
+    function create<TState extends {}>(state: TState, setStateFunc: SetStateFunction<TState>, options?: BindingOptions): BindedState<TState>;
 }
 export declare namespace ComponentStateBinder {
     /**
@@ -52,6 +56,5 @@ export declare namespace ComponentStateBinder {
      *
      * @returns {@link Binded<TState>} for the {@link React.Component}.
      */
-    function create<TProps, TState extends {}>(component: React.Component<TProps, TState>, options?: BindingOptions): Binded<TState>;
+    function create<TProps, TState extends {}>(component: React.Component<TProps, TState>, options?: BindingOptions): BindedState<TState>;
 }
-export {};

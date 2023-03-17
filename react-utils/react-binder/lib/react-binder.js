@@ -13,10 +13,7 @@ const DEFAULT_BINDING_OPTIONS = { whenShouldSetState: 'onlyOnChanges', cloningOp
  * @returns {boolean} True if the object is Binded otherwise false
  */
 function isBinded(obj) {
-    if (obj && (obj === null || obj === void 0 ? void 0 : obj.__current)) {
-        return true;
-    }
-    return false;
+    return obj === null || obj === void 0 ? void 0 : obj.__binded;
 }
 exports.isBinded = isBinded;
 var StateBinder;
@@ -29,15 +26,18 @@ var StateBinder;
      * function instead as it handles this case.
      *
      * @param {TState}          state           React state variable to use
-     * @param {Function}        setStateFunc    Function pass the state once there is a change to the BindedState
+     * @param {Function}        setStateFunc    Function pass the state once there is a change to the Binded
      * @param {BindingOptions}  options         Additional options to configure the state binder.
      *
      * @returns {@link Binded<T>} for {@link React.Component}.
      */
     function create(state, setStateFunc, options = DEFAULT_BINDING_OPTIONS) {
-        const contextState = shallowCopy(state);
-        const context = createBindingContext(contextState, contextState, setStateFunc, options);
-        const stateProxy = createProxy(context.state, context);
+        // Check if the object is already binded to another setState
+        if (isBinded(state)) {
+            console.warn('The object is already binded');
+        }
+        const stateContext = createStateBindingContext(state, setStateFunc, options);
+        const stateProxy = createProxy(stateContext.current, stateContext);
         return stateProxy;
     }
     StateBinder.create = create;
@@ -47,8 +47,15 @@ var StateBinder;
         const context = createChildContext(current, parentContext);
         const handler = {
             get: (target, key) => {
-                if (typeof target[key] !== "object" || target[key] === null) {
-                    return target[key];
+                // if(!Object.hasOwn(target, key)) {
+                //     return undefined;
+                // }
+                const value = target[key];
+                if (typeof value !== "object") {
+                    return value;
+                }
+                if (isBinded(value)) {
+                    return value;
                 }
                 const proxy = createProxy(context.current[key], context);
                 target[key] = proxy;
@@ -64,34 +71,27 @@ var StateBinder;
                 return true;
             }
         };
-        const binder = Object.assign(Object.assign({}, context.current), { __current: current, updateAsync(asyncFunc) {
+        const binder = Object.assign(Object.assign({}, context.current), { __binded: true, update(func) {
                 const prev = context.copy(context.current);
-                return asyncFunc(prev).then(() => {
-                    const safeNext = context.copy(prev);
-                    binder.set(safeNext);
-                    context.onChange();
-                });
-            },
-            update(func) {
-                const prev = context.copy(context.current);
-                func(prev);
-                const safeNext = context.copy(prev);
-                binder.set(safeNext);
+                const undefinedOrPromise = func(prev);
+                // If it's an async function or returns a promise handles it.
+                if (undefinedOrPromise instanceof Promise) {
+                    const promise = undefinedOrPromise.then(() => {
+                        binder.set(prev);
+                    });
+                    return promise;
+                }
+                binder.set(prev);
             },
             set(newValues) {
                 const safeNext = context.copy(newValues);
-                const assigned = Object.assign(context.current, safeNext);
-                context.current = assigned;
+                Object.assign(context.current, safeNext);
+                Object.assign(binder, safeNext);
                 context.onChange();
-                return assigned;
-            },
-            replace(newValue) {
-                const safeNext = context.copy(newValue);
-                context.current = safeNext;
                 return binder;
             },
             toString() {
-                return JSON.stringify(current);
+                return JSON.stringify(context.current);
             } });
         const toProxy = binder;
         const proxy = new Proxy(toProxy, handler);
@@ -131,11 +131,10 @@ var ComponentStateBinder;
  * @param setState The setState function to perform evertime there is a change.
  * @param copy The copy function to use to perform a copy operations
  *
- * @returns Return a Binding Context necesary to create the {@link BindedState}
+ * @returns Return a Binding Context necesary to create the {@link Binded}
  */
-function createBindingContext(obj, state, setStateFunc, options) {
+function createStateBindingContext(state, setStateFunc, options) {
     let copy;
-    const current = obj;
     switch (options.cloningOption) {
         case "deep":
             copy = deepCopy;
@@ -144,16 +143,12 @@ function createBindingContext(obj, state, setStateFunc, options) {
         default:
             copy = shallowCopy;
     }
-    if (isBinded(current)) {
-        console.log({ alreadyBinded: current });
-    }
     const context = {
-        state: state,
-        current: current,
+        current: copy(state),
         copy: copy,
         onChange: () => {
-            const nextState = copy(context.state);
-            setStateFunc(nextState, () => context.state = nextState);
+            const nextState = copy(context.current);
+            setStateFunc(nextState);
         },
         options: options
     };
@@ -162,7 +157,7 @@ function createBindingContext(obj, state, setStateFunc, options) {
 /**
  * Helper function to create the binding context used to manage the state internally.
  *
- * DO NOT use when declaring the a variable in the {@link React.Component} class as
+ * DO NOT use when declaring the variable in the {@link React.Component} class as
  * the setSate gets replaced after declared. Use the {@link ComponentBinder.create()}
  * function instead.
  *
@@ -171,11 +166,10 @@ function createBindingContext(obj, state, setStateFunc, options) {
  * @param setState The setState function to perform evertime there is a change.
  * @param copy The copy function to use to perform a copy operations
  *
- * @returns Return a Binding Context necesary to create the {@link BindedState}
+ * @returns Return a Binding Context necesary to create the {@link Binded}
  */
 function createChildContext(current, parentContext) {
     const context = {
-        state: parentContext.state,
         current: current,
         copy: parentContext.copy,
         onChange: parentContext.onChange,
