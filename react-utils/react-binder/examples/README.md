@@ -5,7 +5,7 @@ Under this folder there is a simple set of examples of using the nelson-react-bi
 
 ## Running the sample App
 Usually this would require to clone the repository and then perform the link an install.
-If you just want to run you can jump to the "**[All commands together](#All-commands-together)**" bellow.
+If you just want to run you can jump to the [All commands together](#all-commands-together) bellow.
 
 
 ### Setup
