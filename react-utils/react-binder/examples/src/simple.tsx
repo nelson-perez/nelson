@@ -46,7 +46,7 @@ export default class App extends React.Component<{}, any> {
     };
 
     // Input change handler
-    handleChange_updateAsync = (event: any) => {
+    handleChange_updateAsync = async (event: any) => {
         async function sleep(ms: number) {
             const promise = new Promise<void>((res) => setTimeout(res, ms));
             await promise;
@@ -58,7 +58,7 @@ export default class App extends React.Component<{}, any> {
         this.binded.level2.level2_1 = "asyncBulkUpdate-2_1: Waiting ";
         
         // Perform multiple updates within a single setState call
-        this.binded.update(async (b: any) => {
+        await this.binded.update(async (b: any) => {
             await sleep(1000);
             b.level1 = "asyncBulkUpdate-1: " +  value;
             b.level2.level2_1 = "asyncBulkUpdate-2_1: " + value

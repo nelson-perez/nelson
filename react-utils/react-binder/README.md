@@ -123,8 +123,8 @@ type IState = {
 };
 
 export default class App extends React.Component<{}, any> {
-    state: IState = {level1: 'level1', level2: {level2_1: "level2.level2_1"}};
-    binded: Binded<IState> = ComponentStateBinder.create(this);
+    state: any = {level1: 'level1', level2: {level2_1: "level2.level2_1"}};
+    binded: Binded<any> = ComponentStateBinder.create(this);
 
     // Input change handler
     handleChange_replacePrimitive = (event: any) => {
@@ -161,7 +161,7 @@ export default class App extends React.Component<{}, any> {
     };
 
     // Input change handler
-    handleChange_updateAsync = (event: any) => {
+    handleChange_updateAsync = async (event: any) => {
         async function sleep(ms: number) {
             const promise = new Promise<void>((res) => setTimeout(res, ms));
             await promise;
@@ -173,7 +173,7 @@ export default class App extends React.Component<{}, any> {
         this.binded.level2.level2_1 = "asyncBulkUpdate-2_1: Waiting ";
         
         // Perform multiple updates within a single setState call
-        this.binded.updateAsync(async (b: any) => {
+        await this.binded.update(async (b: any) => {
             await sleep(1000);
             b.level1 = "asyncBulkUpdate-1: " +  value;
             b.level2.level2_1 = "asyncBulkUpdate-2_1: " + value
@@ -190,7 +190,6 @@ export default class App extends React.Component<{}, any> {
             level2: {level2_1: "setOperation-2_1: " + value}
         })
     };
-
   render() {
         return (
             <div>
@@ -233,5 +232,6 @@ export default class App extends React.Component<{}, any> {
         );
     }
 }
+  
 
 ```
