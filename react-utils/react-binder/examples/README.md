@@ -5,7 +5,7 @@ Under this folder there is a simple set of examples of using the nelson-react-bi
 
 ## Running the sample App
 Usually this would require to clone the repository and then perform the link an install.
-If you just want to run you can jump to the [All commands together](#all_commands) bellow.
+If you just want to run you can jump to the [All commands together](#all-commands-together) bellow.
 
 
 ### Setup
@@ -26,7 +26,7 @@ Once the App is loaded and running a browser window should appear going to the a
 If it doesn't you can go directly to the App in http://localhost:3000/
 
 
-### <a name="all_commands"></a> All commands togethers
+### All commands together
 To make it easier I include a section with all the commands together like a script that you can just run.
 ```bash
 git clone https://github.com/nelson-perez/nelson.git
